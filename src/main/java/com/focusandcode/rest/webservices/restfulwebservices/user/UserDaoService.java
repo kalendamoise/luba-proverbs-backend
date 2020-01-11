@@ -1,5 +1,7 @@
 package com.focusandcode.rest.webservices.restfulwebservices.user;
 
+import com.focusandcode.rest.webservices.restfulwebservices.user.exceptions.UserAlreadyExistException;
+import com.focusandcode.rest.webservices.restfulwebservices.user.exceptions.UserNotFoundException;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;

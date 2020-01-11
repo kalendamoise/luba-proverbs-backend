@@ -1,4 +1,4 @@
-package com.focusandcode.rest.webservices.restfulwebservices.exception;
+package com.focusandcode.rest.webservices.restfulwebservices.proverbs.exceptions;
 
 import java.util.Date;
 

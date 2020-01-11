@@ -1,5 +1,7 @@
 package com.focusandcode.rest.webservices.restfulwebservices.user;
 
+import com.focusandcode.rest.webservices.restfulwebservices.user.exceptions.PostNotFoundException;
+import com.focusandcode.rest.webservices.restfulwebservices.user.exceptions.UserNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.CollectionModel;
@@ -24,6 +26,9 @@ public class UserController {
     @Autowired
     private UserDaoService usersDaoService;
 
+    @Autowired
+    private PostDaoService postDaoService;
+
     @GetMapping(path = "/users")
     public CollectionModel<EntityModel<User>> retrieveAllUsers() {
         List<User> users = this.usersDaoService.findAll();
@@ -35,7 +40,7 @@ public class UserController {
                 .map(user -> {
                     return new EntityModel<User>(user,
                             linkTo(methodOn(UserController.class).retrieveUser(user.getId())).withSelfRel(),
-                            linkTo(methodOn(UserController.class).retrieveAllUsers()).withRel(LinkRelation.of("all-users")));
+                            linkTo(methodOn(UserController.class).retrievePostsForUser(user.getId())).withRel(LinkRelation.of("all-users-posts")));
                 }).collect(Collectors.toList());
 
 
@@ -51,6 +56,7 @@ public class UserController {
 
         EntityModel<User> model = new EntityModel(user);
         model.add(linkTo(methodOn(UserController.class).retrieveUser(id)).withSelfRel());
+        model.add(linkTo(methodOn(UserController.class).retrievePostsForUser(id)).withRel(LinkRelation.of("all-users-posts")));
         model.add(linkTo(methodOn(UserController.class).retrieveAllUsers()).withRel(LinkRelation.of("all-users")));
         return model;
 
@@ -66,5 +72,43 @@ public class UserController {
     @DeleteMapping(path = "/users/{id}")
     public void deleteUser(@PathVariable Integer id) {
         this.usersDaoService.delete(id);
+    }
+
+    @GetMapping(path = "/users/{id}/posts")
+    public CollectionModel<EntityModel<Post>> retrievePostsForUser(@PathVariable Integer id) {
+        List<Post> posts = this.postDaoService.findAll(id);
+        if (null == posts || posts.size() == 0) {
+            throw new PostNotFoundException("There are no posts in the system for user with id: " + id);
+        }
+
+        List<EntityModel<Post>> myUsers = StreamSupport.stream(posts.spliterator(), false)
+                .map(post -> {
+                    return new EntityModel<Post>(post,
+                            linkTo(methodOn(UserController.class).retrievePost(post.getUserId(), post.getId())).withSelfRel(),
+                            linkTo(methodOn(UserController.class).retrieveUser(post.getUserId())).withRel(LinkRelation.of("user")));
+                }).collect(Collectors.toList());
+
+
+        return new CollectionModel<>(myUsers,
+                linkTo(methodOn(UserController.class).retrievePostsForUser(id)).withSelfRel());
+
+
+    }
+
+    @GetMapping(path = "/users/{id}/posts/{post_id}")
+    public EntityModel<Post> retrievePost(@PathVariable Integer id, @PathVariable Integer post_id) {
+        Post user = this.postDaoService.findOne(post_id, id);
+
+        EntityModel<Post> model = new EntityModel(user);
+        model.add(linkTo(methodOn(UserController.class).retrievePost(id, post_id)).withSelfRel());
+        model.add(linkTo(methodOn(UserController.class).retrieveAllUsers()).withRel(LinkRelation.of("all-users")));
+        return model;
+    }
+
+    @PostMapping(path = "/users/{id}/posts")
+    public ResponseEntity<Object> createPost(@PathVariable Integer id, @Valid @RequestBody Post post) {
+        Post newPost = this.postDaoService.save(post);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{post_id}").buildAndExpand(newPost.getId()).toUri();
+        return ResponseEntity.created(location).build();
     }
 }
